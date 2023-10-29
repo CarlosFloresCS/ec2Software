@@ -28,7 +28,9 @@ class ApiFactory(CoordenadasFactory):
             data = response.json()
             if len(data) > 0:
                 return Coordenadas(float(data[0]['lat']), float(data[0]['lon']))
-        return None
+        if response.status_code == 404:
+            raise CiudadNoEncontradaError(f'La ciudad {ciudad} en el país {pais} no fue encontrada.')
+        raise CiudadNoEncontradaError(f'Error al obtener las coordenadas de la ciudad {ciudad} en el país {pais}.')
 
 class MockFactory(CoordenadasFactory):
     def obtener_coordenadas(self, ciudad, pais):
@@ -39,12 +41,15 @@ class CalculadoraDistancia:
         self.factory = factory
 
     def obtener_distancia(self, ciudad1, pais1, ciudad2, pais2):
-        coordenadas1 = self.factory.obtener_coordenadas(ciudad1, pais1)
-        coordenadas2 = self.factory.obtener_coordenadas(ciudad2, pais2)
-        if coordenadas1 is None or coordenadas2 is None:
-            return None
-        else:
-            return self.calcular_distancia(coordenadas1, coordenadas2)
+        try:
+            coordenadas1 = self.factory.obtener_coordenadas(ciudad1, pais1)
+            coordenadas2 = self.factory.obtener_coordenadas(ciudad2, pais2)
+            if coordenadas1 is None or coordenadas2 is None:
+                return None
+            else:
+                return self.calcular_distancia(coordenadas1, coordenadas2)
+        except CiudadNoEncontradaError:
+            raise CiudadNoEncontradaError(f'La ciudad {ciudad1} en el país {pais1} o la ciudad {ciudad2} en el país {pais2} no fueron encontradas.')
 
     def calcular_distancia(self, coordenadas1, coordenadas2):
         R = 6371  # Radio de la Tierra en km
@@ -56,3 +61,6 @@ class CalculadoraDistancia:
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         distancia = R * c
         return distancia
+    
+class CiudadNoEncontradaError(Exception):
+   pass
